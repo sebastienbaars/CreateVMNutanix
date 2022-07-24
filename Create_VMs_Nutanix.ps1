@@ -13,9 +13,7 @@ $PCIP = "192.168.1.100"
 $PEIP = "192.168.1.101"
 $Debug = 1
 $LocalAdminPassword = "Y0uC@nChAngeTh!sTo€veryThing"
-$DNSDC1 = @("192.168.1.5","192.168.2.5")
-$DNSDC2 = @("192.168.2.5","192.168.3.5")
-$DNSDC3 = @("192.168.3.5","192.168.1.5")
+$DNS = @("192.168.1.5","192.168.2.5")
 $Domain = "sebaars.local"
 $DomainJoinCredential = Get-Credential -Message "Domain-Join Credential"
 $DomainJoinUser = $DomainJoinCredential.UserName
@@ -40,7 +38,6 @@ ForEach ($Server in $Servers) {
     #region VarVM
     $VMName = $Server.Name
     $ClusterName = $Server.Cluster
-    $Template = $Server.Template
     $CPU = $Server.CPU
     $RAM = $Server.RAM -as [int]
     $IP = $Server.IP
@@ -60,31 +57,14 @@ ForEach ($Server in $Servers) {
     $VMExist = ((REST-Get-Pe-VMs-V1 -PeClusterIP $PEIP -AuthHeader $AuthHeader).entities | Where-Object {$_.VmName -eq $VmName})
 
     If ($VMExist.vmName -eq $VMName) {
-        Write-Log -Message "Server $VMName bestaat al, deze wordt niet aangemaakt" -ForegroundColor Yellow
+        Write-Log -Message "Server $VMName already exist, skipping this one."
     }
-        #region DNSSettings
-        Else{
-            If ($VMName -like "***1*") {
-                write-log -message "$VMName komt in DC1, DNS settings van DC1 worden gebruikt"
-                $dns1 = $DNSDC1.split(",")[0]
-                $dns2 = $DNSDC1.split(",")[1]
-            }
-            ElseIf ($VMName -like "***2*") {
-                write-log -message "$VMName komt in DC2, DNS settings van DC2 worden gebruikt"
-                $dns1 = $DNSDC2.split(",")[0]
-                $dns2 = $DNSDC2.split(",")[1]
-            }
-            ElseIf ($VMName -like "***3*") {
-                write-log -message "$VMName komt in DC3, DNS settings van DC3 worden gebruikt"
-                $dns1 = $DNSDC3.split(",")[0]
-                $dns2 = $DNSDC3.split(",")[1]
-            }  
-            Else {
-                write-log -message "stomme template doen wij lekker niks mee"
-            }
-        #endregion DNSSettings
-        write-log -message "Server $VMName bestaat niet, deze wordt nu aangemaakt"
-        Write-Log -Message "Parameters worden verzameld voor het maken van $VMName"
+        #region SplitDNSServers
+                $dns1 = $DNS.split(",")[0]
+                $dns2 = $DNS.split(",")[1]
+        #endregion SplitDNSServers
+        write-log -message "Server $VMName doesn't exist, making $VMName"
+        Write-Log -Message "Collecting all the information for the $VMName"
         
         #region InfraInfoVM
         $Cluster = ((REST-Get-PC-Clusters-V3 -PcClusterIp $PCIP -AuthHeader $AuthHeader).Entities | Where-Object {$_.Status.Name -eq $Clustername})
@@ -96,45 +76,42 @@ ForEach ($Server in $Servers) {
         $ProjectUUID = ((REST-Query-Pc-Projects -PcClusterIP $PCIP -AuthHeader $AuthHeader).Entities | Where-Object {$_.Status.Name -eq $ProjectName}).metadata.uuid
         $OwnerName = $NutanixUsername
         $OwnerUUID = ((REST-Get-PC-Users -PcClusterIp $PCIP -AuthHeader $AuthHeader).entities | Where-Object {$_.Status.Name -eq $OwnerName}).metadata.uuid
-        Write-Log -Message "Parameters zijn verzameld voor het maken van $VMName"
+        Write-Log -Message "All the information is collected for $VMName"
         #endregion InfraInfoVM
 
         #region SysPrepInfo
-        Write-Log -message "SysPrep gegevens worden verzameld voor $VMName"
+        Write-Log -message "Collection SysPrep information for $VMName"
         $SysPrepInfo = LIB-IP-Domain-Server-SysprepXML -VMName $VMName -LocalAdminPass $LocalAdminPassword -IFName "Ethernet" -IPAddress $IP -NetMask $NetMask -Gateway $Gateway -DNS1 $DNS1 -DNS2 $DNS2 -Domain $Domain -DomainJoinUser $DomainJoinUser -DomainJoinPassword $DomeinJoinPassword
-        Write-Log -message "SysPrep gegevens zijn verzameld voor $VMName"
+        Write-Log -message "All the information is collected for SysPrep for $VMName"
         #endregion SysPrepInfo
 
         #region CreateVM
-        Write-Log -Message "De $VMName wordt nu aangemaakt"
+        Write-Log -Message "$VMName will be created on $ClusterName"
         REST-Create-Pc-Vm-V3 -PcClusterIp $PCIP -AuthHeader $AuthHeader -CpuSockets 1 -CpuThreads 1 -CpusPerSocket $CPU -MemoryMB $RAMMB -VmName $VmName -DiskMB $DiskSizeMB -BootMode 2 -ImageUuid $ImageUUID -DisableCdRom $True -DiskType SCSI -ContainerName $ContainerName -ContainerUuid $ContainerUUID -SubnetName $Subnetname -SubnetUuid $SubnetUUID -ClusterName $ClusterName -ClusterUuid $ClusterUUID -ProjectName Default -GuestOSCustomizeScript $SysPrepInfo -GuestOSType Windows -GpuProfileVendor none -GpuProfileDeviceType none -GpuProfileDeviceId none -GpuProfileDeviceName none -AosVersion $AOSVersion -ProjectUuid $ProjectUUID -OwnerName $OwnerName -OwnerUuid $OwnerUUID
-        Write-Log -Message "De $VMName is aangemaakt"
+        Write-Log -Message "$VMName is created on $ClusterName"
         #endregion CreateVM
 
         #region 10 sec Sleep
-        Write-Log -Message "10 seconde geduld hebben "
-            sleep -Seconds 10
-        Write-Log -Message "pff soms duurt zelfs 10 secondes heel lang.... "
+        Write-Log -Message "10 seconde sleep, have a little bit of patience"
+            Start-Sleep -Seconds 10
+        Write-Log -Message "oke... sometimes 10 secondes is taking a long time "
         #endregion 10 sec Sleep
 
         #region CreateDisk
         If ($Disks -eq [System.String]::IsNullOrEmpty($Disks))  {
-            Write-Log -Message "Geen HardDisk gezet, wordt niet aangemaakt"
+            Write-Log -Message "No additionals disk configured, doing nothing"
             }
         Else {
             Foreach ($Disk in $Disks.DiskSize) {
-            Write-Log -Message "Gegevens ophalen voor het aanmaken van de HardDisks "
+            Write-Log -Message "Additional Disks configured, gathering the specs."
             $VMUUID = ((REST-Get-Pe-VMs-V1 -PeClusterIP $PEIP -AuthHeader $AuthHeader).entities | Where-Object {$_.VmName -eq $VmName}).uuid
             $VMInfo = REST-Get-Px-VM-V2-Detail -PeClusterIP $PEIP -AuthHeader $AuthHeader -VmUuid $VMuuid
-            Write-Log -Message "Gegevens zijn opgehaald voor het aanmaken van de HardDisks "
+            Write-Log -Message "Specs are collected, preparing the Disks "
         
-            Write-Log -Message "Aanmaken van de HardDisks"
-            Write-Log -Message "D-schijf wordt aangemaakt voor $VMName, als deze is gezet"
-
+            Write-Log -Message "Creating the Disk with size $Disk GB for $VMName"
                 REST-Add-Pe-VmDisk -PeClusterIP $PEIP -AuthHeader $AuthHeader -VmDetailObj $Vminfo -SizeGb $Disk -DiskType SCSI
-
                     }
-            Write-Log -Message "HardDisks zijn aangemaakt "
+            Write-Log -Message "Disk with size $Disk GB configured for $VMname"
         }
         #endregion CreateDisk
         
@@ -160,46 +137,45 @@ ForEach ($Server in $Servers) {
 
 
         #region StartVM
-        Write-Log -message " $VMname wordt gestart "
+        Write-Log -message "Powering on $VMname"
         REST-Set-Pe-VM-PowerState -PeClusterIP $PEIP -AuthHeader $AuthHeader -VmUuid $VMUUID -State On
-        Write-Log -message " $VMname is gestart "
+        Write-Log -message "$VMname is Powered on"
         #endregion StartVM
 
         #region 120 sec Sleep
-        Write-Log -Message "120 seconde geduld hebben "
-            sleep -Seconds 120
-        Write-Log -Message "pff soms duurt zelfs 120 secondes heel lang.... "
+        Write-Log -Message "120 seconde sleep, have a little bit of patience"
+            Start-Sleep -Seconds 120
+        Write-Log -Message "oke... sometimes 120 secondes is taking a long time "
         #endregion 120 sec Sleep
 
         #region Move Computer-Account to OU.
         $QADUsername = $QADCredential.UserName
         $QADPassword = $QADCredential.Password
-        Write-Log -Message "Connectie maken naar de QAD Servers in $Domain "
+        Write-Log -Message "Making a connection with the QAD Servers in $Domain "
         Connect-QADService -Proxy -Service $QADServer -ConnectionAccount $QADUsername -ConnectionPassword $QADPassword
-        Write-Log -Message "Connectie gemaakt naar de QAD Servers in $Domain "
+        Write-Log -Message "Connection is made with the QAD Servers in $Domain "
 
-        Sleep -Seconds 10
+        Start-Sleep -Seconds 10
 
-        Write-Log -Message "Move $VMName naar $OU"
+        Write-Log -Message "Move $VMName to $OU"
         $ComputerAccountExists = Get-QADComputer $VMName
-        Write-Log -Message "Check of $VMName in $Domain bestaat."
-        If ($ComputerAccountExists -ne $Null) {
+        Write-Log -Message "Check of $VMName in $Domain already exist."
+        If ($Null -ne $ComputerAccountExists) {
             $CheckOU = $ComputerAccountExists.ParentContainer
             If ($CheckOU -ne $OU) {
-                Write-Log -message "$VMName bestaat en wordt nu verhuisd naar $OU"
+                Write-Log -message "$VMName already exist, moving it to $OU"
                 Get-QADComputer $VMName | Move-QADObject -to $OU
-                Write-Log -message "$VMName is verhuisd naar $OU"
+                Write-Log -message "$VMName is moved to $OU"
             }
             Else {
-                Write-Log -message "$OU bestaat niet, $VMName kan niet worden verhuisd."
+                Write-Log -message "$OU doesn't exist, $VMName can't be moved. Somebody made a boeboe..."
             }
         Else {
-            Write-Log -Message "$VMName bestaat niet in het $Domain"
+            Write-Log -Message "$VMName doesn't exist in $Domain, something is going wrong.... RED ALERT!!!!!!"
             }
-        Write-Log -message "Verbreek de verbinding met QAD"
+        Write-Log -message "disconnecting the connection with QAD"
         Disconnect-QADService
-        Write-Log -message "Verbinding met QAD is verbroken"
+        Write-Log -message "The connection with QAD is disconnected"
         #endregion Move Computer-Account to OU.
         }
     }
-}
