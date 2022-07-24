@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Servers>
+    <Server>
+        <Name>SEBAARS-SQL01</Name>
+        <Cluster>Cluster01</Cluster>
+        <ImageName>WS2019_Core</ImageName>
+        <CPU>8</CPU>
+        <RAM>16</RAM>
+        <IP>192.168.1.13</IP>
+        <Netmask>/24</Netmask>
+        <Gateway>192.168.1.1</Gateway>
+        <SubnetName>Server-VLAN</SubnetName>
+        <Disks>
+            <DiskSize>20</DiskSize>
+            <DiskSize>40</DiskSize>
+            <DiskSize>200</DiskSize>
+        </Disks>
+        <OU>sebaars.nl/Servers/Citrix/XenDesktop</OU>
+    </Server>
+</Servers>
