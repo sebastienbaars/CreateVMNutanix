@@ -43,7 +43,7 @@ ForEach ($Server in $Servers) {
     $IP = $Server.IP
     $Gateway = $Server.Gateway
     $NetMask = $Server.Netmask
-    $SubnetName = $Server.SubnetName
+    $SubnetNames = $Server.SubnetNames.SubnetName
     $Disks = $Server.Disks
     $ContainerName = "VDI-Acceptatie-Infra-DEV-Infra-01"
     $ImageName = $Server.ImageName
@@ -71,6 +71,7 @@ ForEach ($Server in $Servers) {
         $ClusterUUID = ((REST-Get-Pc-Clusters-V3 -PcClusterIp $PCIP -AuthHeader $AuthHeader).Entities | Where-Object {$_.status.name -eq $ClusterName}).metadata.uuid
         $AOSVersion = $Cluster.status.resources.config.build.version
         $ContainerUUID = ((REST-Get-Pe-Containers -PeClusterIp $PEIP -AuthHeader $AuthHeader).entities | Where-Object {$_.name -eq $ContainerName}).containeruuid
+        $Subnetname = ($Server.SubnetNames.SubnetName | Where-Object {$_.Primary -eq "True"}).Name
         $SubnetUUID = ((REST-Get-Pe-Networks -PeClusterIp $PEIP -AuthHeader $AuthHeader).Entities | Where-Object {$_.Name -eq $Subnetname}).uuid
         $ImageUUID = ((REST-List-Px-Images -PxClusterIP $PEIP -AuthHeader $AuthHeader).Entities | Where-object {$_.Status.Name -eq $Imagename}).metadata.uuid
         $ProjectUUID = ((REST-Query-Pc-Projects -PcClusterIP $PCIP -AuthHeader $AuthHeader).Entities | Where-Object {$_.Status.Name -eq $ProjectName}).metadata.uuid
@@ -135,6 +136,34 @@ ForEach ($Server in $Servers) {
         Invoke-RestMethod -Uri $uri -Method POST -Credential $Infobloxcred -ContentType "application/json" -Body $data -Verbose
         #endregion InfobloxDNSregistratie
 
+        #region AddAddionalsNICs
+        $AddSubNetnames = ($Server.SubnetNames.SubnetName | Where-Object {$_.Primary -eq "False"}).Name
+        If ($AddSubNetnames -eq [System.String]::IsNullOrEmpty($Disks))  {
+            Write-Log -Message "Geen HardDisk gezet, wordt niet aangemaakt"
+            }
+        Else {
+            Foreach ($AddSubNetname in $AddSubNetnames){ 
+                $VMs = REST-Get-Px-VMs-V3 -PxClusterIP $PCIP -AuthHeader $AuthHeader
+                $VMUUID = ((REST-Get-Px-VMs-V3 -PxClusterIP $PCIP -AuthHeader $AuthHeader).entities | Where-Object {$_.Status.name -eq $VmName}).metadata.uuid
+                $VM = $VMs.entities | Where-Object {$_.MetaData.uuid -eq $VMUUID}
+                $AddSubnetUUID = ((REST-Get-Pe-Networks -PEClusterIp $PEIP -AuthHeader $AuthHeader).entities | Where-Object {$_.name -eq $AddSubnetName}).uuid
+                $UUID = (new-guid).guid
+                $Nic = @"
+                {
+                "subnet_reference": {
+                "kind": "subnet",
+                "uuid": "$($AddSubnetUUID)"
+                },
+                "is_connected": true,
+                "uuid": "$UUID"
+                }
+"@
+                $nicobj = $nic | convertfrom-json
+                [array]$VM.spec.resources.nic_list += $nicobj
+                REST-Update-Px-VMs-V3-Object -PxClusterIp $PCIP -AuthHeader $AuthHeader -VM $VM
+            }
+        }
+        #endregion AddAddionalsNICs
 
         #region StartVM
         Write-Log -message "Powering on $VMname"
