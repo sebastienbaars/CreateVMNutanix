@@ -9,7 +9,11 @@
         <IP>192.168.1.13</IP>
         <Netmask>/24</Netmask>
         <Gateway>192.168.1.1</Gateway>
-        <SubnetName>Server-VLAN</SubnetName>
+        <SubnetNames>
+            <SubnetName Primary="True">
+                <Name>Server-VLAN</Name>
+            </SubnetName>
+        </SubnetNames>
         <Disks>
             <DiskSize>20</DiskSize>
         </Disks>
@@ -24,7 +28,14 @@
         <IP>192.168.1.14</IP>
         <Netmask>/24</Netmask>
         <Gateway>192.168.1.1</Gateway>
-        <SubnetName>Server-VLAN</SubnetName>
+        <SubnetNames>
+            <SubnetName Primary="True">
+                <Name>Server-VLAN</Name>
+            </SubnetName>
+            <SubnetName Primary="False">
+                <Name>SQL-VLAN</Name>
+            </SubnetName>
+        </SubnetNames>
         <Disks>
             <DiskSize>20</DiskSize>
             <DiskSize>40</DiskSize>
