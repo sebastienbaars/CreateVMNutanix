@@ -472,7 +472,7 @@ $SysprepFile = @"
                     <PlainText>True</PlainText>
                 </AdministratorPassword>
             </UserAccounts>
-            <RegisteredOwner>DMO JIVC</RegisteredOwner>
+            <RegisteredOwner>SeBaars</RegisteredOwner>
             <AutoLogon>
                 <Password>
                     <Value>$($LocalAdminPass)</Value>
@@ -482,14 +482,6 @@ $SysprepFile = @"
                 <Username>Administrator</Username>
                 <Enabled>true</Enabled>
             </AutoLogon>
-            <FirstLogonCommands>
-                <SynchronousCommand wcm:action="add">
-                    <Order>1</Order>
-                    <CommandLine>C:\DeployTemp\scripts\Install_MULANagents.cmd</CommandLine>
-                    <RequiresUserInput>true</RequiresUserInput>
-                    <Description>Install Mulan agents</Description>
-                </SynchronousCommand>
-            </FirstLogonCommands>
         </component>
         <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             <InputLocale>0409:00000409</InputLocale>
