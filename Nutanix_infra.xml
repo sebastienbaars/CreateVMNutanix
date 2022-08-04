@@ -30,6 +30,6 @@
             <DiskSize>40</DiskSize>
             <DiskSize>200</DiskSize>
         </Disks>
-        <OU>sebaars.nl/Servers/Citrix/XenDesktop</OU>
+        <OU>sebaars.nl/Servers/SQL</OU>
     </Server>
 </Servers>
