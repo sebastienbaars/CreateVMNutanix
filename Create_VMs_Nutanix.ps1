@@ -1,5 +1,5 @@
 #region ImportPSModule
-$PSPath = "\\sebaars.local\IT\Powershell\Function-Library\"
+$PSPath = "\\sebaars.local\IT\Powershell\REST-API-NutanixPS\"
 $PSFiles = (Get-ChildItem $PSPath -Recurse).FullName
 
 Foreach ($PSFile in $PSFiles) {
